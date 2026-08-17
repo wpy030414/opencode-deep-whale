@@ -2,7 +2,7 @@
 
 ## 概述
 
-DOM 注入层。在 OpenCode 渲染进程中运行，负责替换 favicon、logo-mark 和默认项目头像。通过 MutationObserver 保持注入节点在 SPA 重渲染后存活。
+属性维护层。在 OpenCode 渲染进程中运行，负责维护 `html[data-maid-skin]` 属性，防止 React 重渲染将其清除。
 
 ## 文件
 
@@ -27,67 +27,34 @@ document.readyState !== 'loading'
 
 ### `ensureSkinAttr()`
 
-确保 `html[data-maid-skin]` 属性值为 `"deep-sea-maid-atelier"`。
-
-### `install()` → `boolean`
-
-1. 检查 `#root` 是否存在（不存在返回 `false`，等待重试）。
-2. 调用 `ensureSkinAttr()`。
-3. **默认项目头像重路由**：
-   - 选择器：`img[data-component="app-icon"]`
-   - 条件：`src` 包含 `opencode.ai/favicon` 且未被本皮肤接管
-   - 动作：替换 `src` 为 `ICON_DATA_URI`（data:image/webp;base64）
-   - 标记：设置 `data-maid-skin-owner="true"` 防止重复修改
-4. **Logo-mark SVG 替换**：
-   - 选择器：`svg[data-component="logo-mark"]`
-   - 条件：未被本皮肤接管
-   - 动作：替换 `innerHTML` 为 `LOGO_MARK_SVG` 的内部路径（去掉外层 `<svg>` 标签）
-   - 标记：设置 `data-maid-skin-owner="true"`
-5. 返回 `true`。
+检查 `html` 元素的 `data-maid-skin` 属性，若值不为 `"deep-sea-maid-atelier"`，则设置为该值。
 
 ### `start()`
 
-1. `ensureSkinAttr()`（最早设置属性，确保 CSS 立即生效）。
-2. 尝试 `install()`，成功则返回。
-3. 启动 `setInterval` 重试（500ms × 60 次上限）。
-4. 注册 `MutationObserver`：
-   - 观察 `document.body` 的 `childList` + `subtree`
-   - 每次变化调用 `install()`
-   - 幂等性由 `data-maid-skin-owner` 属性保证
+1. 调用 `ensureSkinAttr()`（最早设置属性，确保 CSS 立即生效）。
+2. 若 `window.MutationObserver` 可用：
+   - 创建 Observer 实例
+   - 监听 `document.documentElement` 的 `attributes` 变化
+   - `attributeFilter: ['data-maid-skin']`
+   - 每次变化调用 `ensureSkinAttr()` 重新设置属性
 
-## 占位符
+## 行为说明
 
-| 占位符 | 替换时机 | 替换内容 |
-|---|---|---|
-| `__MAID_ATELIER_ICON_B64__` | `patch-asar.ts` 构建时 | `public/maid-atelier-palace-day-v4.webp` 的 base64 编码 |
-
-## 常量
-
-### `ICON_DATA_URI`
-
-```javascript
-'data:image/webp;base64,__MAID_ATELIER_ICON_B64__'
-```
-
-用于替换默认项目头像的 data URI。
-
-### `LOGO_MARK_SVG`
-
-自定义的侧栏品牌 SVG（女仆风格 glyph），包含：
-- 3 条 `<path>` 元素
-- 使用 `var(--icon-weak-base)` 和 `var(--icon-strong-base)` 变量着色
-- 自动跟随主题色变化
+- **职责简化**：本文件仅负责维护 `data-maid-skin` 属性，不执行任何 DOM 替换操作（favicon/logo/avatar）。
+- **防重渲染清除**：React 可能会在重渲染时清除 `html` 元素上的自定义属性，MutationObserver 检测到后立即重新设置。
+- **无重试逻辑**：早期版本使用 `setInterval` 重试，现已简化为仅依赖 MutationObserver。
 
 ## 约束
 
-- **幂等性**：所有 DOM 修改通过 `data-maid-skin-owner` 属性标记，重复执行 `install()` 不会重复修改。
 - **无全局污染**：IIFE 封装，不暴露任何全局变量。
-- **无远程请求**：所有素材为 data URI，不触发网络请求。
+- **无远程请求**：纯本地属性维护，不触发网络请求。
 - **兼容性**：使用 `var`（非 `let`/`const`）和 ES5 语法，确保在旧版 Electron 中运行。
-- **选择器稳定性**：依赖 `data-component` 属性而非 class name，对 CSS 重构有较好的容忍度。
+- **幂等性**：`ensureSkinAttr()` 可重复调用，属性值始终为 `"deep-sea-maid-atelier"`。
 
 ## 错误处理
 
-- `#root` 不存在：返回 `false`，由 `setInterval` 重试。
-- `MutationObserver` 不可用：跳过（仅 `setInterval` 兜底）。
-- 重试上限（60 次 / 30 秒）：静默停止，不报错。
+- `MutationObserver` 不可用：跳过（属性仅在启动时设置一次，无持续维护）。
+
+## 历史
+
+早期版本包含 `install()` 函数，负责替换 favicon SVG、logo-mark 和默认项目头像。但由于 React 频繁重渲染导致替换丢失，且 MutationObserver 持续监听带来性能开销，后续版本简化为仅维护 `data-maid-skin` 属性（见 D-011）。

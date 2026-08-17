@@ -25,7 +25,7 @@
 ## Non-Goals（绝对不做的事）
 
 1. **不修改 OpenCode 业务逻辑**：不触碰消息、事件、模型请求、API 调用。
-2. **不引入远程资源依赖**：所有素材内嵌 data URI，皮肤离线可运行。
+2. **不引入远程资源依赖**：所有素材打包入 asar，皮肤离线可运行。
 3. **不替换二进制系统资源**：任务栏图标（`*.ico`）、系统通知图标不做替换（无图像转换工具链）。
 4. **不维护上游 OpenCode 代码**：本仓库是独立分发仓库，不是 OpenCode 的 fork。
 5. **不自动检测上游更新**：`app.asar` 被应用更新后需用户手动重跑 `pnpm apply`。
@@ -36,6 +36,7 @@
 
 - **语言**：TypeScript（ES2022 + NodeNext），无编译步骤，`tsx` 直接执行。
 - **包管理**：pnpm（`pnpm-workspace.yaml` 中 `allowBuilds.esbuild: true`）。
-- **生成产物**：`src/build/` 不入 git（已在 `.gitignore`）。
+- **样式表**：`src/maid-atelier.css` 为直接编辑目标（色板 + 布局规则），无生成步骤。
 - **素材**：`public/*.webp`，命名规则 `maid-atelier-<角色/场景>-<版本>.webp`。
 - **CSS 选择器**：全部挂在 `html[data-maid-skin]` 下，禁止裸全局选择器。
+- **图片加载**：通过 `oc://renderer/images/...` URL 引用，图片文件打包入 asar 的 `out/renderer/images/` 目录。

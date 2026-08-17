@@ -2,7 +2,7 @@
 
 ## 概述
 
-跨平台 asar 补丁引擎。负责提取 OpenCode Desktop 的 `app.asar`，改写预载脚本注入皮肤 CSS 和 DOM 注入层，替换 favicon，重打包并安装。
+跨平台 asar 补丁引擎。负责提取 OpenCode Desktop 的 `app.asar`，改写预载脚本注入皮肤 CSS 链接和属性维护层，复制样式表和素材，重打包并安装。
 
 ## 文件
 
@@ -23,7 +23,8 @@
 
 - 替换 `<appDir>/resources/app.asar` 为补丁版本。
 - 创建备份文件 `<asarPath>.maid-atelier.bak`（首次）。
-- 写入 `src/build/maid-atelier.user.css`（通过 `buildCssToFile()`）。
+- 将 `src/maid-atelier.css` 复制到 `out/renderer/maid-atelier.css`。
+- 将 `public/*.webp` 复制到 `out/renderer/images/`。
 
 ## 流程
 
@@ -37,31 +38,29 @@
    ├── 备份不存在？→ 复制 app.asar → .bak
    └── 备份已存在？→ 保留（不覆盖）
 
-3. 构建 CSS
-   └── buildCssToFile() → src/build/maid-atelier.user.css
-
-4. 提取与改写
+3. 提取与改写
    ├── asar.extractAll(app.asar → tempDir/out)
    ├── force 模式：从 .bak 提取 pristine preload
    ├── 校验 preload 包含 "opencode-theme-id"
-   ├── 读取 CSS + inject.js
-   ├── 替换 inject.js 中的 __MAID_ATELIER_ICON_B64__ 占位符
-   └── 拼接 bootstrap: preload + IIFE(属性+CSS) + inject.js
+   ├── 读取 src/maid-atelier.css
+   ├── 读取 src/maid-atelier.inject.js
+   └── 拼接 bootstrap: preload + IIFE(属性 + CSS link) + inject.js
 
-5. 替换 favicon
-   └── 读取 maid-icon.svg → 写入 out/renderer/favicon-v3.svg
+4. 复制资源
+   ├── 复制 maid-atelier.css → out/renderer/maid-atelier.css
+   └── 复制 public/*.webp → out/renderer/images/*.webp
 
-6. 重打包与校验
+5. 重打包与校验
    ├── asar.createPackage(out → out.asar)
    ├── 校验 out.asar 包含 marker
    └── 记录文件大小
 
-7. 安装
+6. 安装
    ├── 删除原 app.asar
    ├── 重命名 out.asar → app.asar
    └── autoRestart？→ launchOpenCode()
 
-8. 清理
+7. 清理
    └── 删除 tempDir（finally 块，确保执行）
 ```
 
@@ -85,7 +84,9 @@
 - `@electron/asar`：asar 提取/重打包
 - `node:fs`, `node:path`, `node:os`：文件系统操作
 - `node:child_process`：进程管理（检测/终止/启动 OpenCode）
-- `./build-css.js`：CSS 生成
+- `src/maid-atelier.css`：皮肤样式表
+- `src/maid-atelier.inject.js`：属性维护层
+- `public/*.webp`：素材图片
 
 ## 错误处理
 
@@ -95,5 +96,6 @@
 | 已打补丁且非 force | `fail()` 提示使用 force |
 | .bak 中的 preload 含 marker | 抛异常（备份已污染） |
 | preload 不含 `opencode-theme-id` | 抛异常（非预期文件） |
+| maid-atelier.css 不存在 | 抛异常（必需文件缺失） |
 | favicon 源不存在 | 跳过（非致命） |
 | 重打包后 marker 缺失 | 抛异常（不安装损坏的 asar） |

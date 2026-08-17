@@ -1,6 +1,6 @@
 # opencode-deep-whale · 深海女仆工坊
 
-**opencode 桌面端的 asar 补丁皮肤注入器**——将"深海女仆工坊"（Maid Atelier）主题皮肤打入 OpenCode Desktop 的 `app.asar`，覆盖亮/暗双主题色板、角色立绘、宫殿背景、favicon 徽标与 DOM 装饰层。
+**opencode 桌面端的 asar 补丁皮肤注入器**——将"深海女仆工坊"（Maid Atelier）主题皮肤打入 OpenCode Desktop 的 `app.asar`，覆盖亮/暗双主题色板、角色立绘、宫殿背景与 DOM 装饰层。
 
 ## 当前状态
 
@@ -16,7 +16,8 @@
 | 打包 | `@electron/asar` | 提取 / 重打包 Electron asar 归档 |
 | 运行时 | `tsx` (ES2022 + NodeNext) | TypeScript 直接执行，无编译步骤 |
 | 注入点 | `out/renderer/oc-theme-preload.js` | 在 app bundle 之前执行的预载脚本 |
-| 素材 | data URI（base64 webp） | 零远程依赖，全部内嵌 |
+| 样式加载 | `oc://renderer/maid-atelier.css` | 通过 `<link>` 标签加载独立 CSS 文件 |
+| 素材 | `oc://renderer/images/*.webp` | 独立 webp 文件，打包入 asar，CSS 变量引用 |
 | CSS 作用域 | `html[data-maid-skin]` | 高特异性选择器，不影响未激活状态 |
 
 ## 运行
@@ -52,21 +53,17 @@ cp ./src/maid-atelier.tui.json "$HOME/.config/opencode/themes/maid-atelier.json"
 ```
 opencode-deep-whale/
 ├── public/                          # 素材资源（webp 图片）
-│   ├── maid-atelier-maid-left-v5.webp
-│   ├── maid-atelier-maid-right-v6.webp
 │   ├── maid-atelier-palace-day-v4.webp
 │   ├── maid-atelier-palace-night-v4.webp
-│   └── maid-*.webp                  # 装饰素材（花边、角饰等）
+│   ├── maid-atelier-maid-left-v5.webp
+│   ├── maid-atelier-maid-right-v6.webp
+│   └── maid-*.webp                  # 装饰素材（花边、角饰等，暂未使用）
 ├── src/
 │   ├── index.ts                     # 入口：CLI 参数解析 → patchAsar()
 │   ├── patch-asar.ts                # 核心：asar 提取/注入/重打包/安装引擎
-│   ├── build-css.ts                 # CSS 生成器：data URI + 色板 + 静态规则
-│   ├── maid-atelier.inject.js       # DOM 注入层：favicon/logo/头像重路由
-│   ├── maid-atelier.desktop.json    # 桌面端主题色板（light/dark）
-│   ├── maid-atelier.tui.json        # TUI 终端主题（flat 格式）
-│   ├── build/
-│   │   └── maid-atelier.user.css    # 生成产物（不入 git）
-│   └── README.md                    # 源码级说明
+│   ├── maid-atelier.css             # 皮肤样式表（色板 + 布局规则，直接编辑）
+│   ├── maid-atelier.inject.js       # DOM 注入层：维护 data-maid-skin 属性
+│   └── maid-atelier.tui.json        # TUI 终端主题（flat 格式）
 ├── package.json
 ├── pnpm-workspace.yaml
 ├── tsconfig.json
@@ -89,3 +86,4 @@ opencode-deep-whale/
 | 上善 | 鲸鱼娘角色形象原作 | [Pixiv](https://www.pixiv.net/users/62155430) · [Bilibili](https://b23.tv/8h5L4xz) |
 | ZipZipPipe | 加入 DeepSeek 元素的女仆鲸鱼娘二次设计 | [Pixiv](https://www.pixiv.net/users/18604994) · [Bilibili](https://b23.tv/Pnw6nG8) |
 | Small-tailqwq | 三创皮肤工程与 asar 补丁 | GitHub |
+| wpy030414 | 转向对 OpenCode 支持 | GitHub |
