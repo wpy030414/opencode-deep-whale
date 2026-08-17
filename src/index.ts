@@ -1,6 +1,6 @@
 // src/index.ts
 // Entry point for the opencode-deep-whale asar patcher.
-// Run with: pnpm patch (or pnpm dev / pnpm build)
+// Run with: pnpm apply (or pnpm apply -- --no-force / --no-backup / --allow-running)
 import { patchAsar } from './patch-asar.js'
 
 async function main(): Promise<void> {

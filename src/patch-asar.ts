@@ -7,7 +7,6 @@ import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { execSync, spawn } from 'node:child_process'
 import asar from '@electron/asar'
-import { buildCssToFile } from './build-css.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const SRC = __dirname
@@ -211,8 +210,20 @@ export async function patchAsar(options: PatchOptions = {}): Promise<void> {
     }
   }
 
-  // Build CSS first
-  const cssPath = buildCssToFile()
+  // Read static CSS file
+  const cssPath = path.join(SRC, 'maid-atelier.css')
+  if (!fs.existsSync(cssPath)) {
+    throw new Error(`maid-atelier.css not found in src/`)
+  }
+  const css = fs.readFileSync(cssPath, 'utf8')
+
+  // Image files to copy into renderer
+  const ART_FILES = [
+    'maid-atelier-palace-day-v4.webp',
+    'maid-atelier-palace-night-v4.webp',
+    'maid-atelier-maid-left-v5.webp',
+    'maid-atelier-maid-right-v6.webp',
+  ]
 
   // Create temp work dir
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-maid-patch-'))
@@ -248,29 +259,40 @@ export async function patchAsar(options: PatchOptions = {}): Promise<void> {
       throw new Error('unexpected oc-theme-preload.js content; refusing to patch')
     }
 
-    // Read CSS and inject.js
-    const css = fs.readFileSync(cssPath, 'utf8')
+    // Write CSS file to renderer root (loaded via <link>)
+    // Note: asar internal structure is out/renderer/..., so extracted paths are outDir/out/renderer/
+    const rendererDir = path.join(outDir, 'out', 'renderer')
+    fs.mkdirSync(rendererDir, { recursive: true })
+    const cssTarget = path.join(rendererDir, 'maid-atelier.css')
+    fs.writeFileSync(cssTarget, css, 'utf8')
+    log(`wrote ${cssTarget} (${css.length} bytes)`)
+
+    // Copy image assets to out/renderer/images/
+    const imagesDir = path.join(rendererDir, 'images')
+    fs.mkdirSync(imagesDir, { recursive: true })
+    const publicDir = path.join(ROOT, 'public')
+    for (const file of ART_FILES) {
+      const src = path.join(publicDir, file)
+      if (!fs.existsSync(src)) throw new Error(`missing asset: ${src}`)
+      fs.copyFileSync(src, path.join(imagesDir, file))
+    }
+    log(`copied ${ART_FILES.length} images to ${imagesDir}`)
+
+    // Read inject.js (no longer needs placeholder replacement)
     const injectJsPath = path.join(SRC, 'maid-atelier.inject.js')
     if (!fs.existsSync(injectJsPath)) throw new Error(`missing ${injectJsPath}`)
-    let injectJs = fs.readFileSync(injectJsPath, 'utf8')
+    const injectJs = fs.readFileSync(injectJsPath, 'utf8')
 
-    // Inject icon base64
-    const iconPath = path.join(ROOT, 'public', 'maid-atelier-palace-day-v4.webp')
-    if (!fs.existsSync(iconPath)) throw new Error(`missing icon source: ${iconPath}`)
-    const iconB64 = fs.readFileSync(iconPath).toString('base64')
-    injectJs = injectJs.replace(/__MAID_ATELIER_ICON_B64__/g, iconB64)
-
-    // Build bootstrap
+    // Build bootstrap — CSS loaded via <link>, no inline base64
     const bootstrap =
       preload +
       '\n\n;(function () {\n' +
       '  document.documentElement.dataset.maidSkin = "deep-sea-maid-atelier"\n' +
-      '  var style = document.createElement("style")\n' +
-      '  style.id = "oc-maid-atelier"\n' +
-      '  style.textContent = ' +
-      JSON.stringify(css) +
-      '\n' +
-      '  document.head.appendChild(style)\n' +
+      '  var link = document.createElement("link")\n' +
+      '  link.rel = "stylesheet"\n' +
+      '  link.id = "oc-maid-atelier"\n' +
+      '  link.href = "oc://renderer/maid-atelier.css"\n' +
+      '  document.head.appendChild(link)\n' +
       '})()\n\n' +
       injectJs
 
