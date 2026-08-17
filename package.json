@@ -1,0 +1,16 @@
+{
+  "name": "opencode-deep-whale",
+  "description": "深海女仆工坊 (Maid Atelier) skin for opencode desktop",
+  "type": "module",
+  "scripts": {
+    "apply": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@electron/asar": "^3.2.10"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

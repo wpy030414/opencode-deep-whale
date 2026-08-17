@@ -1,0 +1,53 @@
+{
+  "$schema": "https://opencode.ai/themes/theme.json",
+  "name": "深海女仆工坊 (Maid Atelier)",
+  "id": "maid-atelier",
+  "primary": "#8CA4DC",
+  "secondary": "#A5B8E8",
+  "accent": "#E2CFAA",
+  "text": "#E5EAF6",
+  "background": "#080F27",
+  "border": "#31497F",
+  "diff": {
+    "add": "#2E8A58",
+    "delete": "#B93A32",
+    "addForeground": "#B8E9C9",
+    "deleteForeground": "#F7BEB6"
+  },
+  "markdown": {
+    "info": "#8CA4DC",
+    "link": "#9BB0E1",
+    "linkText": "#A8BCE8",
+    "code": "#7FD8B0",
+    "blockQuote": "#96A6C9",
+    "emph": "#E2CFAA",
+    "strong": "#E8C77F",
+    "horizontalRule": "#44598C",
+    "listItem": "#9BB0E1",
+    "listEnumeration": "#A8BCE8",
+    "image": "#9BB0E1",
+    "imageText": "#A8BCE8",
+    "codeBlock": "#E5EAF6"
+  },
+  "syntax": {
+    "comment": "#7F90B4",
+    "regexp": "#BDC9E3",
+    "string": "#7FD8B0",
+    "keyword": "#9BB0E1",
+    "primitive": "#F0A0BD",
+    "operator": "#BDC9E3",
+    "variable": "#E5EAF6",
+    "property": "#E2CFAA",
+    "type": "#A5B8E8",
+    "constant": "#B8A5E8",
+    "punctuation": "#96A6C9",
+    "object": "#E5EAF6",
+    "success": "#7FD8B0",
+    "warning": "#E2CFAA",
+    "critical": "#F09085",
+    "info": "#8CC8E8",
+    "diffAdd": "#7FD8B0",
+    "diffDelete": "#F09085",
+    "diffUnknown": "#B8A5E8"
+  }
+}
