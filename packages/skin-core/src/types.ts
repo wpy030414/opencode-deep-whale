@@ -88,6 +88,20 @@ export interface BuildOptions {
   k?: number
   /** Output path for tokens.json. */
   outPath?: string
+  /**
+   * 选中主题名（skin-assets 的 <name>.theme/）。主题只在 build-tokens 选择，
+   * 写入 tokens.json 的 theme 字段，preview / apply 等其他模块跟随读取。
+   */
+  theme?: string
+  /**
+   * 角色展示配置（键为 character-left / character-right，字段可选，缺省用默认值：
+   * offset ["0%", "0%"]、height "86%"；均为 CSS 值字符串）。
+   * 写入 tokens.json 的 char-config 字段，
+   * 供 build-mapping 生成 --character-*-height / --character-*-position CSS 变量。
+   */
+  charConfig?: Partial<
+    Record<'character-left' | 'character-right', { offset?: [string, string]; height?: string }>
+  >
   /** Optional: seed colors to bias clustering toward (e.g. status-ok green). */
   seedColors?: Hex[]
 }

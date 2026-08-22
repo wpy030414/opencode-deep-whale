@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { extractColorsFromImages } from './extract-colors.js'
 import { generateTokenPairs, rgbToHex } from './generate-tokens.js'
-import { getColorSourceImagePaths } from './assets-loader.js'
+import { getColorSourceImagePaths, getActiveTheme } from './assets-loader.js'
 
 async function main() {
   const args = process.argv.slice(2)
@@ -22,11 +22,12 @@ async function main() {
     }
   }
 
-  // If no --sources provided, load from skin-assets manifest.json colorSource
-  // (character art only — scene backgrounds must NOT tint the theme)
+  // If no --sources provided, follow the active theme (selected by build-tokens)
+  // and load its manifest colorSource (character art only — scene backgrounds must NOT tint the theme)
   if (sources.length === 0) {
-    sources = getColorSourceImagePaths()
-    console.log(`   Using manifest colorSource (${sources.length} images)`)
+    const theme = getActiveTheme()
+    sources = getColorSourceImagePaths(theme)
+    console.log(`   Using active theme '${theme}' colorSource (${sources.length} images)`)
   }
 
   console.log('🎨 Generating palette preview...')

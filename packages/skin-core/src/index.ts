@@ -5,7 +5,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { extractColorsFromImages } from './extract-colors.js'
 import { generateTokenPairs } from './generate-tokens.js'
-import { getAllRoleImagePaths, getColorSourceImagePaths } from './assets-loader.js'
+import { getAllRoleImagePaths, getColorSourceImagePaths, listThemes, selectTheme, getThemeDir, getActiveTheme, getCharConfig, DEFAULT_CHAR_CONFIG } from './assets-loader.js'
 import type { BuildOptions } from './types.js'
 
 // Re-export color utilities for skin packages to derive their own scales.
@@ -20,8 +20,8 @@ export {
   generateTokens,
   generateTokenPairs,
 } from './generate-tokens.js'
-export { getAllRoleImagePaths, getColorSourceImagePaths } from './assets-loader.js'
-export { buildBootstrap, buildImageInjectionScript, imageFileToDataUri } from './bootstrap-builder.js'
+export { getAllRoleImagePaths, getColorSourceImagePaths, listThemes, selectTheme, getThemeDir, getActiveTheme, getCharConfig, DEFAULT_CHAR_CONFIG } from './assets-loader.js'
+export { buildBootstrap, buildImageInjectionScript, imageFileToDataUri, imageFileToOptimizedDataUri } from './bootstrap-builder.js'
 export { TOKEN_KEYS } from './types.js'
 export type { Tokens, TokenKey, RGB, Hex, ColorCluster, BuildOptions } from './types.js'
 
@@ -33,11 +33,14 @@ export type { Tokens, TokenKey, RGB, Hex, ColorCluster, BuildOptions } from './t
  * @returns The generated token pairs { light, dark }
  */
 export async function buildTokens(options: BuildOptions): Promise<{ light: Record<string, string>; dark: Record<string, string> }> {
-  const { sources, k = 8, outPath } = options
+  const { sources, k = 8, outPath, theme, charConfig } = options
 
   console.log('🎨 Skin Core: Extracting colors from images...')
   console.log(`   Sources: ${sources.length} images`)
   console.log(`   Clusters: ${k}`)
+  if (theme) {
+    console.log(`   Theme: ${theme}`)
+  }
 
   // Extract colors from all images
   const clusters = await extractColorsFromImages(sources, k)
@@ -62,7 +65,24 @@ export async function buildTokens(options: BuildOptions): Promise<{ light: Recor
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true })
     }
-    fs.writeFileSync(outPath, JSON.stringify({ light, dark }, null, 2))
+    // 活动主题记录在 tokens.json 顶层 theme 字段——preview / apply 跟随读取；
+    // 角色展示配置（char-config）同样写顶层，供 build-mapping 生成 CSS 变量
+    const out: Record<string, unknown> = {
+      'char-config': {
+        'character-left': {
+          offset: charConfig?.['character-left']?.offset ?? DEFAULT_CHAR_CONFIG['character-left'].offset,
+          height: charConfig?.['character-left']?.height ?? DEFAULT_CHAR_CONFIG['character-left'].height,
+        },
+        'character-right': {
+          offset: charConfig?.['character-right']?.offset ?? DEFAULT_CHAR_CONFIG['character-right'].offset,
+          height: charConfig?.['character-right']?.height ?? DEFAULT_CHAR_CONFIG['character-right'].height,
+        },
+      },
+      light,
+      dark,
+    }
+    if (theme) out.theme = theme
+    fs.writeFileSync(outPath, JSON.stringify(out, null, 2))
     console.log(`   ✓ Wrote tokens (light+dark) to ${outPath}`)
   }
 
@@ -73,10 +93,11 @@ export async function buildTokens(options: BuildOptions): Promise<{ light: Recor
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2)
 
-  // Parse --sources and --out flags
+  // Parse --sources / --out / --k / --theme flags
   let sources: string[] = []
   let outPath = 'dist/tokens.json'
   let k = 16
+  let themeArg: string | undefined
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--sources' && i + 1 < args.length) {
@@ -88,23 +109,34 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     } else if (args[i] === '--k' && i + 1 < args.length) {
       k = parseInt(args[i + 1])
       i++
+    } else if (args[i] === '--theme' && i + 1 < args.length) {
+      themeArg = args[i + 1]
+      i++
     }
   }
 
-  // If no --sources provided, load from skin-assets manifest.json colorSource
-  // (character art only — scene backgrounds must NOT tint the theme)
-  if (sources.length === 0) {
-    sources = getColorSourceImagePaths()
-    console.log(`   Using manifest colorSource (${sources.length} images)`)
-  }
+  let theme: string | undefined
+  let charConfig: BuildOptions['charConfig']
+  try {
+    // If no --sources provided, load from the selected theme's manifest colorSource
+    // (character art only — scene backgrounds must NOT tint the theme)
+    if (sources.length === 0) {
+      theme = await selectTheme(themeArg)
+      sources = getColorSourceImagePaths(theme)
+      console.log(`   Using theme '${theme}' colorSource (${sources.length} images)`)
+      charConfig = getCharConfig(theme)
+      const left = charConfig['character-left']!
+      const right = charConfig['character-right']!
+      console.log(
+        `   Char config: left offset [${left.offset}] h ${left.height} / right offset [${right.offset}] h ${right.height}`
+      )
+    }
 
-  buildTokens({ sources, k, outPath })
-    .then(() => {
-      console.log('\n✓ Token generation complete')
-      process.exit(0)
-    })
-    .catch((err) => {
-      console.error('\n❌ Token generation failed:', err.message)
-      process.exit(1)
-    })
+    await buildTokens({ sources, k, outPath, theme, charConfig })
+    console.log('\n✓ Token generation complete')
+    process.exit(0)
+  } catch (err) {
+    console.error('\n❌ Token generation failed:', (err as Error).message)
+    process.exit(1)
+  }
 }
