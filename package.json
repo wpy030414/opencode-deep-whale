@@ -4,12 +4,13 @@
   "type": "module",
   "scripts": {
     "build-tokens": "pnpm --filter @skins/core build",
-    "build-mapping": "pnpm --filter @skins/opencode build-mapping && pnpm --filter @skins/qwenwork build-mapping",
     "preview": "pnpm --filter @skins/core preview",
-    "dev:opencode": "node scripts/dev-opencode.mjs",
-    "apply:opencode": "pnpm --filter @skins/opencode apply",
     "dev:qwenwork": "node scripts/dev-qwenwork.mjs",
-    "apply:qwenwork": "pnpm --filter @skins/qwenwork apply"
+    "build-mapping:qwenwork": "pnpm --filter @skins/qwenwork build-mapping",
+    "apply:qwenwork": "pnpm --filter @skins/qwenwork apply",
+    "dev:opencode": "node scripts/dev-opencode.mjs",
+    "build-mapping:opencode": "pnpm --filter @skins/opencode build-mapping",
+    "apply:opencode": "pnpm --filter @skins/opencode apply"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
