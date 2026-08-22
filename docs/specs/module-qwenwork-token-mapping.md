@@ -84,4 +84,4 @@ buildSemanticRules(t, mode): 语义（light/dark 各 ~110 条）
 
 ## 如何判断任务已经完成
 
-`pnpm build-mapping` 输出 token-mapping.css；apply 后 QwenWork 三模式（亮/暗/跟随系统）视觉一致达标。
+`pnpm build-mapping:qwenwork` 输出 token-mapping.css；apply 后 QwenWork 三模式（亮/暗/跟随系统）视觉一致达标。

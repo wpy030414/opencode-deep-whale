@@ -55,7 +55,8 @@
 - `css`：token-mapping.css + skin.css 合并文本
 - `injectJs`：共享 inject.js 内容
 - `marker`：skin 包自己的 marker（`qwenwork-skin` / `oc-skin`）
-- 素材：skin-assets manifest 的 4 个角色（构建时 base64）
+- 素材：**活动主题**（build-tokens 写入 tokens.json 的 theme 字段）的 4 个角色——构建时经 `getActiveTheme()` 读取，转 data URI base64。**主题不在此选择**
+- **大图压缩**：data URI 超过 1.5MB 的图片（base64 后）构建时用 sharp 缩放（上限 1920×1080，不放大）+ 转 webp（quality 82）——**Chromium 对 URL 有 2MB 硬上限（kMaxURLChars），超长会被静默替换为无效 URL，背景图直接消失**；小图原样内联零损失
 
 ## 输出
 
@@ -68,6 +69,7 @@
 - 不修改 React 的虚拟 DOM
 - 不引入远程资源（data URI 内联）
 - 所有图片缺失时报错（`missing asset: <path>`）
+- **每张图 data URI < 2MB**（Chromium URL 上限）——超限图构建时自动压缩转 webp
 
 ## 边界条件
 

@@ -10,7 +10,7 @@
 
 运行 `pnpm build-tokens` 时：
 
-1. 取色来源：`--sources` 指定的图片；未指定时读取 skin-assets manifest 的 `colorSource` 角色（只从角色立绘采样）
+1. 取色来源：`--sources` 指定的图片；未指定时读取**选中主题** manifest 的 `colorSource`（只从角色立绘采样）。主题通过 `--theme <name>` / `SKIN_THEME` 环境变量指定；未指定时 TTY 下交互式编号选择，非 TTY 报错并列出可用主题。**主题选择只发生在 build-tokens**——选中主题写入 tokens.json 顶层 `theme` 字段，preview / apply 跟随（它们不选主题）
 2. 每张图 sharp 解码 → 100x100 resize（`fit: inside`）→ 去 alpha → 每 2 像素采样
 3. 单图 k-means++（k=16，确定性 PRNG）→ 多图簇合并二次 k-means（k=16）
 4. 输出簇按 L* 亮度升序（darkest first）
@@ -22,7 +22,8 @@
 
 | 参数 | 类型 | 默认 | 说明 |
 |---|---|---|---|
-| `--sources` | `string[]`（逗号分隔） | manifest colorSource 角色 | 图片路径（webp/png/jpg） |
+| `--sources` | `string[]`（逗号分隔） | 选中主题的 manifest colorSource | 图片路径（webp/png/jpg） |
+| `--theme` | `string` | 无（TTY 交互选择 / 非 TTY 报错） | 主题名（skin-assets 的 `<name>.theme/`），也支持 `SKIN_THEME` 环境变量 |
 | `--out` | `string` | `dist/tokens.json` | 输出路径 |
 | `--k` | `number` | `16` | 聚类数 |
 
@@ -30,10 +31,17 @@
 
 ```json
 {
+  "theme": "maid-atelier",
+  "char-config": {
+    "character-left": { "offset": ["0%", "0%"], "height": "86%" },
+    "character-right": { "offset": ["-30px", "-20%"], "height": "80vh" }
+  },
   "light": { "neutral-50": "#f7f7f7", "...": "...", "accent": "#..." },
   "dark":  { "neutral-50": "#f7f7f7", "...": "...", "accent": "#..." }
 }
 ```
+
+顶层 `theme` = 活动主题（preview / apply 跟随读取；`--sources` 显式指定时无此字段）。顶层 `char-config` = 角色展示配置（offset 距边/距底 + 高度，均为 CSS 值字符串），取自 manifest 同名字段、补全为完整两角色配置（缺省：offset `["0%", "0%"]`、height `"86%"`）；供 build-mapping 生成 `--character-*-height` / `--character-*-position` CSS 变量。
 
 **46 个 key**（`TOKEN_KEYS`，缺一不可）：
 - neutral-50 ~ neutral-1100（12）
@@ -63,7 +71,8 @@
 
 ## 边界条件
 
-1. **无 `--sources` 且 manifest 无 colorSource**：报错（manifest 必须声明非空 colorSource 数组）
+1. **无 `--sources` 且选中主题的 manifest 无 colorSource**：报错（manifest 必须声明非空 colorSource 数组）
+2. **无 `--sources` 且未指定主题**：TTY 交互选择；非 TTY 报错列出可用主题（详见 module-assets spec）
 2. **图片为空 / 打不开**：sharp 抛错，CLI 退出码 1
 3. **像素数 ≤ k**：直接返回像素本身为簇
 4. **几乎无灰的图**：借最不饱和的彩色簇补中性（保证中性阶仍跨明暗）

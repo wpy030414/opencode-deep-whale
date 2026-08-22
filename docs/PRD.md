@@ -51,8 +51,8 @@
 
 ### 3. 共享图片库（skin-assets）
 
-- **做什么**：所有 target 共用同一组素材，`manifest.json` 声明 4 个标准角色 + `colorSource` 取色来源
-- **为什么**：避免图片重复存储，换 target 只需换 token-mapping；显式声明取色来源，避免场景背景污染主题色调
+- **做什么**：所有 target 共用同一组素材。素材库下可容纳**多个主题**（`<name>.theme/` 目录），每个主题一份 `manifest.json` 声明 4 个标准角色 + `colorSource` 取色来源；**主题只在 build-tokens 选择**（`--theme` / 交互式），preview / apply 跟随活动主题
+- **为什么**：避免图片重复存储，换 target 只需换 token-mapping；多主题并存让换肤只切 `--theme` 不动文件结构；显式声明取色来源，避免场景背景污染主题色调
 
 ### 4. 各 skin 包实现
 
@@ -87,8 +87,8 @@
 ## 功能关系
 
 ```
-skin-assets (图片 + manifest)
-    ↓ colorSource 角色
+skin-assets (<name>.theme/ 多主题，每主题 manifest)
+    ↓ colorSource 取色来源（--theme 选中主题）
 skin-core (取色 + light/dark 双套 tokens)
     ↓ tokens.json
 skins/<target> (token-mapping + skin.css + patch-asar)

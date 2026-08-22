@@ -16,7 +16,7 @@
 2. `hasMarker()` 流式扫描检测已打补丁；已打且非 force → 报错
 3. app 运行中默认 kill（`--allow-running` 跳过）
 4. 备份 `app.asar` → `.skin.bak`（已存在不动；`--no-backup` 时保留 pristine snapshot）
-5. 读取 `src/skin.css` + `dist/token-mapping.css` + 共享 `skin-core/src/inject.js`，`buildBootstrap()` 拼装
+5. 读取 `src/skin.css` + `dist/token-mapping.css` + 共享 `skin-core/src/inject.js`，`buildBootstrap()` 拼装（素材 = 活动主题，见 module-assets spec）
 6. `asar.extractAll()` 解包到 `/tmp/opencode-skin-patch-*` 临时目录
 7. `--force` 时从 `.bak` 提取 pristine `index.html` 还原（校验备份不含 marker，防污染）
 8. 校验 HTML 包含 `oc-theme-preload-script`（防止对错误的文件打补丁）
@@ -33,6 +33,8 @@
 | `--no-force` | force=true | 关闭强制重 patch |
 | `--no-backup` | false | 跳过备份（仍保留 pristine snapshot） |
 | `--allow-running` | false | 不关闭运行中的 app |
+
+> 主题不在此选择：apply 跟随 build-tokens 选定的活动主题（`dist/tokens.json` 的 theme 字段）。切换主题 = 重跑 `pnpm build-tokens --theme <name>` 再 apply。
 
 ## 输出
 
@@ -64,7 +66,8 @@
 3. **二次 patch 带 --force**：从 `.bak` 还原 pristine HTML 再打；备份含 marker → 抛错（备份已污染）
 4. **`.bak` 已存在**：跳过备份
 5. **`--no-backup` 但 `.bak` 不存在**：仍创建 `.bak` 作 pristine snapshot
-6. **HTML 不含 `oc-theme-preload-script`**：抛错（非预期文件，拒绝打补丁）
+6. **活动主题缺失**（tokens.json 无 theme 字段或缺失）：报错提示先跑 build-tokens，不触碰 app.asar
+7. **HTML 不含 `oc-theme-preload-script`**：抛错（非预期文件，拒绝打补丁）
 7. **`</head>` 缺失**：注入前抛错
 8. **favicon 源不存在**：跳过（非致命）；存在但无 `<svg`：抛错
 9. **重打包后 marker 缺失**：抛错，不安装损坏的 asar

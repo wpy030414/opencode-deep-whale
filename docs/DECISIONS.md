@@ -355,6 +355,46 @@
 
 ---
 
+## D-023 — 多主题并存：<name>.theme/ 目录 + 主题只在 build-tokens 选择
+
+**问题**：skin-assets 之前只有单套素材（`original-images/manifest.json`），要并存多个主题（如深海女仆工坊 + 巧克力猫娘）时怎么组织？
+
+**演进**：
+- 之前：`skin-assets/original-images/` + 单一 `manifest.json`，换主题 = 改文件结构
+- 现在：`skin-assets/` 下每个 `<name>.theme/` 目录是一个主题，各自带 manifest.json（schema 不变：4 个标准角色 + colorSource）
+- **主题选择唯一入口是 build-tokens**：`--theme <name>` 参数 > `SKIN_THEME` 环境变量 > TTY 交互式编号菜单 > 非 TTY 报错列出主题。选定主题写入 `dist/tokens.json` 顶层 `theme` 字段，preview / apply 等其他模块经 `getActiveTheme()` 跟随，**不提供任何主题选择入口**
+
+**为什么**：
+- 交互式选择（而非固定默认/自动第一个）：用户明确要求无论几个主题都提示选择；确定性优先于便利，避免 CI 脚本或手误静默打到错误主题
+- **其他模块不选主题**（用户明确约束）：主题是一个「构建期状态」，由 build-tokens 一次选定，下游消费（取色预览、打补丁注入立绘）自动跟随——避免每个命令各持一份主题状态导致不一致
+- colorSource 条目同时支持**角色 key** 与**主题目录内文件名**：新 manifest 实际写的是文件名（更自由，可把任意图声明为取色源），但旧契约（角色 key）保持兼容，两种写法等价
+- 单一活动 `tokens.json`（而非按主题分文件）：token-mapping → build-mapping → apply 的整条 CSS 链路都会把 tokens 烤进产物，按主题分文件需要重构三个包的映射管线；当前「换主题 = 重跑 build-tokens --theme X」的流程已足够
+
+**影响**：`assets-loader.ts` 的加载函数显式收 `theme` 参数；`getActiveTheme()` 从 tokens.json 读活动主题；`selectTheme()` 只被 build-tokens CLI 调用；preview / apply 保持原参数面（无 --theme）
+
+**何时重新考虑**：如果出现「预先 build 全部主题、apply 时即时切换」的需求，再评估 `dist/tokens/<theme>.json` 分文件布局与 token-mapping 管线改造
+
+---
+
+## D-024 — data URI 内联必须压缩：Chromium 的 2MB URL 上限
+
+**问题**：nekopara 主题的背景图（2.8MB PNG）注入后不显示，立绘正常——同一次注入为何只有背景失败？
+
+**根因**：**Chromium 的 URL 解析器有 2MB 硬上限（`url::kMaxURLChars = 2 * 1024 * 1024`）**，超过的 URL 被**静默替换为无效 URL**（Mojo IPC 边界直接丢弃，无报错）。data URI 也是 URL——背景图 base64 后 3.8MB > 2MB → 浏览器静默丢弃；立绘 92KB < 2MB 正常。maid-atelier 的背景是 webp 小图（~360KB）所以从未触发。
+
+**选择**：bootstrap 构建时在 `imageFileToOptimizedDataUri()` 做**预算式压缩**：
+- data URI < 1.5MB（安全余量）→ 原样内联，零质量损失
+- 超限 → sharp 缩放（上限 1920×1080，`withoutEnlargement`）+ 转 webp（quality 82）再内联
+- 压缩后仍比原图大 → 退回原图
+
+**为什么**：压缩在构建时一次完成（sharp 本就是 skin-core 依赖），运行时零成本；小图不受影响（maid-atelier 全量原样）；2.8MB PNG 背景压到 ~0.34MB webp，注入脚本 7.8MB → 0.87MB，补丁更快、OOM watchdog 风险更低
+
+**影响**：`buildBootstrap` / `buildImageInjectionScript` 变为 async；两处 patch-asar 调用点加 `await`；任何新主题的图片只要 > 1.5MB 都会被自动压缩，主题作者无需感知
+
+**何时重新考虑**：如果某张图压缩后仍有明显画质损失（quality 82 不够），可引入按角色分级（背景 q82 / 立绘 q85+）或提高上限——但 2MB 是硬墙，不能突破
+
+---
+
 ## 重新考虑的时机（汇总）
 
 - 如果加第 3 个 target（如 Cursor / Claude Code），评估是否抽共享 patch-asar 引擎（当前两套策略差异大，暂不统一）

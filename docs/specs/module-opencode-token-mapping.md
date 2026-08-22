@@ -95,4 +95,4 @@ buildSemanticRules(t, mode): 语义（light/dark 各 ~130 条）
 
 ## 如何判断任务已经完成
 
-`pnpm build-mapping` 输出 token-mapping.css；apply 后 OpenCode 亮/暗主题视觉一致达标。
+`pnpm build-mapping:opencode` 输出 token-mapping.css；apply 后 OpenCode 亮/暗主题视觉一致达标。

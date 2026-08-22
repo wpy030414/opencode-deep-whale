@@ -29,7 +29,7 @@
 2. `hasMarker()` 流式扫描（4MB buffer + carry 处理跨边界）检测已打补丁；已打且非 force → 报错
 3. app 运行中默认 kill（`--allow-running` 跳过）；kill 失败不阻塞
 4. 备份 `app.asar` → `app.asar.skin.bak`（已存在不动；`--no-backup` 时仍保留 pristine snapshot）
-5. 读取 `src/skin.css` + `dist/token-mapping.css` + 共享 `skin-core/src/inject.js`，`buildBootstrap()` 拼装
+5. 读取 `src/skin.css` + `dist/token-mapping.css` + 共享 `skin-core/src/inject.js`，`buildBootstrap()` 拼装（素材 = 活动主题，见 module-assets spec）
 6. 解析 asar header，定位 `out/renderer/index.html` 条目
 7. 读 HTML → 剥离旧 marker（`qwenwork-maid-atelier`）残留块 → 注入 bootstrap 到 `</head>` 前
 8. 更新 header：HTML 条目 size + 后续文件 offset 平移；integrity sha256 重算；header JSON 尾部空格 padding 保持等长
@@ -45,6 +45,8 @@
 | `--no-force` | force=true | 关闭强制重 patch（已打补丁时报错） |
 | `--no-backup` | false | 跳过备份（仍保留 pristine snapshot 供 --force） |
 | `--allow-running` | false | 不关闭运行中的 app |
+
+> 主题不在此选择：apply 跟随 build-tokens 选定的活动主题（`dist/tokens.json` 的 theme 字段）。切换主题 = 重跑 `pnpm build-tokens --theme <name>` 再 apply。
 
 ## 输出
 
@@ -78,11 +80,12 @@
 4. **`.bak` 已存在**：跳过备份，日志提示
 5. **`--no-backup` 但 `.bak` 不存在**：仍创建 `.bak` 作 pristine snapshot
 6. **App 正在运行**：默认 kill；`--allow-running` 仅警告
-7. **killApp / launchApp 失败**：捕获异常，仅警告，不失败整个流程
-8. **`app.asar` 不存在 / HTML 无 `<head>`**：立即报错
-9. **Repack 后 marker 缺失 / unpacked 数变化**：抛错，不安装
-10. **OOM watchdog 字符串未找到**：警告（可能已禁用），继续
-11. **旧 marker 残留**：自动剥离，保证 `--force` 后恰好一个 bootstrap
+7. **活动主题缺失**（tokens.json 无 theme 字段或缺失）：报错提示先跑 build-tokens，不触碰 app.asar
+8. **killApp / launchApp 失败**：捕获异常，仅警告，不失败整个流程
+9. **`app.asar` 不存在 / HTML 无 `<head>`**：立即报错
+10. **Repack 后 marker 缺失 / unpacked 数变化**：抛错，不安装
+11. **OOM watchdog 字符串未找到**：警告（可能已禁用），继续
+12. **旧 marker 残留**：自动剥离，保证 `--force` 后恰好一个 bootstrap
 
 ## 验收标准
 

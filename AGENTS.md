@@ -15,7 +15,7 @@
 ### Pipeline 数据流
 
 ```
-图片 (skin-assets, 仅 colorSource 角色)
+图片 (skin-assets <name>.theme/ 选中主题，仅 colorSource 图)
   ↓ extract-colors.ts (k-means++, 确定性 PRNG)
 颜色簇 (ColorCluster[], 按 L* 亮度排序)
   ↓ generate-tokens.ts
@@ -45,7 +45,11 @@ accent  (1):     accent
 
 ### 取色来源（colorSource）
 
-`skin-assets/original-images/manifest.json` 显式声明 `colorSource` 角色数组——**只从这些角色采样取色**。场景背景（昼/夜宫殿）不允许影响主题色调。取色来源的角色变化需要改 manifest，而非改代码。
+`packages/skin-assets/<name>.theme/manifest.json`（每主题一份）显式声明 `colorSource` 取色数组——**只从这些图采样取色**，条目可以是角色 key 或主题目录内文件名。场景背景（昼/夜）不允许影响主题色调。取色来源的变化需要改 manifest，而非改代码。
+
+### 主题选择
+
+skin-assets 可容纳多个 `<name>.theme/` 目录。**主题选择只发生在 build-tokens**（`--theme <name>` 参数 > `SKIN_THEME` 环境变量 > TTY 交互选择 > 非 TTY 报错），选定主题写入 `dist/tokens.json` 顶层 `theme` 字段。**preview / apply 等其他模块不选择主题**，一律通过 `getActiveTheme()` 跟随活动主题。禁止在其他模块引入主题选择。
 
 ## Code Review Rules
 
@@ -82,7 +86,7 @@ accent  (1):     accent
 - **语言**：TypeScript（ES2022 + NodeNext），无编译步骤，`tsx` 直接执行。
 - **包管理**：pnpm（`pnpm-workspace.yaml` 中 `allowBuilds.esbuild: true` / `sharp: true`）。
 - **样式表**：各 skin 包 `src/skin.css` 为直接编辑目标（组件规则），token 颜色全部由 `token-mapping.ts` 生成，skin.css 不得硬编码颜色。
-- **素材**：`packages/skin-assets/original-images/`，文件名自由，经 `manifest.json` 登记到标准角色；角色 key 固定 4 个（background-day / background-night / character-left / character-right）。
+- **素材**：`packages/skin-assets/<name>.theme/`（每主题一个目录），文件名自由，经各自 `manifest.json` 登记到标准角色；角色 key 固定 4 个（background-day / background-night / character-left / character-right）。新增主题 = 新建 `<name>.theme/` 目录 + manifest，不改代码。
 - **CSS 选择器**：全部挂在 `html[data-skin]` 下，禁止裸全局选择器；删除属性 = 完全还原。
 - **图片加载**：一律走 data: URI 内联（构建时 base64），不依赖网络、不依赖文件系统路径、不依赖 `oc://` 等自定义协议。
 - **注入共享**：bootstrap 构建（`buildBootstrap`）、图片注入脚本（`buildImageInjectionScript`）、属性保活（`inject.js`）都在 skin-core，skin 包不重复实现。
@@ -93,15 +97,15 @@ accent  (1):     accent
 | 包 | 职责 | 不改 |
 |---|---|---|
 | skin-core | 取色 + token 生成 + 共享注入逻辑 | 不碰具体 app、不写 CSS、不写 token-mapping |
-| skin-assets | 共享图片库 + manifest | 不碰代码、不碰 tokens |
+| skin-assets | 共享图片库（多主题）+ 每主题 manifest | 不碰代码、不碰 tokens |
 | skins/qwenwork | QwenWork 皮肤实现（二进制补丁） | 不改 core 的 schema |
 | skins/opencode | OpenCode 皮肤实现（extract/repack） | 不改 core 的 schema |
 
 ## 验证清单
 
 1. `pnpm install` → 无报错
-2. `pnpm build-tokens` → 输出 `dist/tokens.json`，包含 light/dark 各 46 个 token
-3. `pnpm build-mapping` → 两个 skin 包都生成 `dist/token-mapping.css`
+2. `pnpm build-tokens --theme maid-atelier` → 输出 `dist/tokens.json`，包含 light/dark 各 46 个 token
+3. `pnpm build-mapping:qwenwork` + `pnpm build-mapping:opencode` → 两个 skin 包都生成 `dist/token-mapping.css`
 4. `pnpm preview` → 生成 `dist/palette.html`，浏览器打开看可视化
 5. `pnpm apply:qwenwork` → QwenWorkCN 重启带皮肤，`app.asar.skin.bak` 生成
 6. `pnpm dev:qwenwork` → QwenWorkCN 重启 + `Option+Cmd+I` 能开 DevTools

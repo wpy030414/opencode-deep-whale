@@ -10,7 +10,7 @@
 │                                                              │
 │  packages/                                                   │
 │  ├── skin-core/       通用管线（取色 + token 生成 + 共享注入）    │
-│  ├── skin-assets/     共享图片库（manifest 角色映射）            │
+│  ├── skin-assets/     共享图片库（多主题，每个 <name>.theme/ 一个 manifest）            │
 │  └── skins/                                                   │
 │      ├── qwenwork/    QwenWorkCN 实现（二进制补丁）             │
 │      └── opencode/    OpenCode 实现（extract/repack）          │
@@ -25,7 +25,7 @@
 
 **边界**：不碰具体 app、不写目标 CSS、不写 token-mapping
 
-**输入**：图片路径列表（默认取 skin-assets manifest 的 `colorSource` 角色）
+**输入**：图片路径列表（默认取**选中主题** manifest 的 `colorSource`；主题由 `--theme` / `SKIN_THEME` / TTY 交互选择）
 
 **输出**：
 - `tokens.json`：**46 个通用 design tokens × light/dark 双套**（`{ light: {...}, dark: {...} }`）
@@ -36,7 +36,7 @@
 **核心模块**：
 - `extract-colors.ts`：k-means++ 聚类（默认 16 簇，**确定性** mulberry32 种子 PRNG）
 - `generate-tokens.ts`：颜色簇 → light/dark 双套 46 tokens（HSL 色彩空间）
-- `assets-loader.ts`：加载 skin-assets 的 manifest.json（roles + colorSource）
+- `assets-loader.ts`：多主题发现与选择（`listThemes` / `selectTheme`）+ 加载选中主题的 manifest.json（roles + colorSource）
 - `bootstrap-builder.ts`：生成内联 CSS + data URI 图片 + inject.js 的 HTML 片段
 - `inject.js`：共享的 `data-skin="active"` 属性保活脚本
 - `palette-preview.ts`：HTML 预览生成
@@ -44,32 +44,36 @@
 
 ### Layer 2: skin-assets（共享资产）
 
-**职责**：存储所有 target 共用的图片 + 标准角色映射
+**职责**：存储所有 target 共用的图片。素材库下可容纳**多个主题**，每个 `<name>.theme/` 目录是一个独立主题，拥有自己的 manifest.json（标准角色映射 + colorSource 取色声明）
 
 **边界**：纯静态资源，不碰代码
 
 **目录结构**：
 ```
 packages/skin-assets/
-└── original-images/
-    ├── manifest.json              ← 标准角色 → 物理文件映射 + colorSource
-    ├── maid-atelier-palace-day-v4.webp
-    ├── maid-atelier-palace-night-v4.webp
-    ├── maid-atelier-maid-left-v5.webp
-    └── maid-atelier-maid-right-v6.webp
+├── nekopara.theme/              ← 主题名 = 目录去 .theme 后缀
+│   ├── manifest.json
+│   └── *.png
+└── maid-atelier.theme/
+    ├── manifest.json
+    └── *.webp
 ```
 
-**manifest.json 结构**（schema: `standard-roles-v1`）：
+**manifest.json 结构**（schema: `standard-roles-v1`，每个主题一份）：
 
 ```json
 {
   "roles": {
-    "background-day": "maid-atelier-palace-day-v4.webp",
-    "background-night": "maid-atelier-palace-night-v4.webp",
-    "character-left": "maid-atelier-maid-left-v5.webp",
-    "character-right": "maid-atelier-maid-right-v6.webp"
+    "background-day": "<file>",
+    "background-night": "<file>",
+    "character-left": "<file>",
+    "character-right": "<file>"
   },
-  "colorSource": ["character-left", "character-right"]
+  "colorSource": ["character-left", "character-right"],
+  "char-config": {
+    "character-left": { "offset": ["0%", "0%"], "height": "86%" },
+    "character-right": { "offset": ["-30px", "-20%"], "height": "80vh" }
+  }
 }
 ```
 
@@ -79,7 +83,11 @@ packages/skin-assets/
 - `character-left`：立绘·左
 - `character-right`：立绘·右
 
-**colorSource（取色来源）**：显式声明哪些角色喂给取色管线。**只从角色立绘采样，场景背景不参与取色**——宫殿昼夜图会污染主题色调（蓝色调会覆盖整个主题）。变更取色来源改 manifest，不改代码。
+**colorSource（取色来源）**：显式声明哪些图喂给取色管线。条目可以是**角色 key**（旧契约）或**主题目录内文件名**（新用法），两种写法等价。**只从角色立绘采样，场景背景不参与取色**——宫殿昼夜图会污染主题色调（蓝色调会覆盖整个主题）。变更取色来源改 manifest，不改代码。
+
+**char-config（角色展示配置，可选）**：键为角色 key，每角色可配 `offset`（[x, y] **CSS 值字符串**：x = 距边缘——左角色距左、右角色距右；y = 距底，默认 `["0%", "0%"]`，可为负——负值让立绘探出视窗，如半身像）与 `height`（**CSS 值字符串**，默认 `"86%"`，如 `"80vh"`）。build-tokens 读入并写入 tokens.json，build-mapping 据此生成 `--character-*-height` / `--character-*-position` CSS 变量（offset 值原样透传进 `calc(100% - <value>)`），skin.css 的 `background-size` / `background-position` 以 `var()` 消费——**调角色位置/高度只改 manifest，不动 CSS**。
+
+**主题选择**：**只有 build-tokens 选择主题**——`selectTheme()` 交互式选择（TTY 编号菜单）或报错列出可用主题（非 TTY），指定方式为 `--theme <name>` 参数或 `SKIN_THEME` 环境变量。选定主题写入 `dist/tokens.json` 顶层 `theme` 字段，**preview / apply 等其他模块不选择主题**，一律经 `getActiveTheme()` 跟随该字段。
 
 ### Layer 3: skins/<target>（具体实现）
 
@@ -91,7 +99,7 @@ packages/skin-assets/
 - `token-mapping.ts`：读取 `dist/tokens.json`（light/dark 双套），生成 `dist/token-mapping.css`（目标 app 的 CSS 变量）。分三段输出：共享色阶块 + light 语义块 + dark 语义块
 - `skin.css`：手写的组件样式（布局、透明度、选择器）
 - `patch-asar.ts`：打补丁引擎（策略因 target 而异）
-- `index.ts`：CLI 入口（解析 `--no-force` / `--no-backup` / `--allow-running`）
+- `index.ts`：CLI 入口（解析 `--no-force` / `--no-backup` / `--allow-running`；主题不在此选择，apply 跟随活动主题）
 
 **注意**：
 - `inject.js` 在 skin-core 共享，skin 包不重复维护
@@ -140,23 +148,23 @@ light / dark 两套：
 ### 构建时
 
 ```
-1. pnpm build-tokens
-   skin-core: assets-loader 读 manifest.colorSource → character 图
+1. pnpm build-tokens --theme <name>（未指定则 TTY 交互选择 / 非 TTY 报错）——主题选择只在这里发生
+   skin-core: selectTheme() → assets-loader 读选中主题 manifest.colorSource → 立绘图
      ↓
    extract-colors.ts: sharp 解码 → 100x100 resize → 每 2 像素采样 → k-means++ (k=16)
      ↓
    generate-tokens.ts: 簇 → { light, dark } 双套 46 tokens
      ↓
-   dist/tokens.json
+   dist/tokens.json（顶层 theme 字段 = 活动主题）
      ↓
-2. pnpm build-mapping
+2. pnpm build-mapping:<target>
    skins/<target>/token-mapping.ts: tokens.json → dist/token-mapping.css
    （共享色阶块 + light 语义块 + dark 语义块）
      ↓
-3. pnpm apply:<target>
+3. pnpm apply:<target>（不选主题——getActiveTheme() 跟随 tokens.json 的活动主题）
    skins/<target>/patch-asar.ts:
    token-mapping.css + skin.css → buildBootstrap()
-   + 4 张立绘 → data URI → buildImageInjectionScript()
+   + 活动主题的 4 张立绘 → data URI → buildImageInjectionScript()
    + inject.js
    → 注入到目标 app 的 out/renderer/index.html（</head> 之前）
    → 重打包 / 二进制补丁 → 校验 marker → 安装 → 重启
@@ -206,12 +214,16 @@ CSS 选择器 html[data-skin] 命中
 
 ### 3. skin-core/src/assets-loader.ts
 
-**职责**：加载 skin-assets 的 manifest.json
+**职责**：多主题发现与选择 + 加载选中主题的 manifest.json
 
 **关键设计**：
-- `getRoleImagePath(role)` / `getAllRoleImagePaths()`：4 个标准角色的物理路径
-- `getColorSourceImagePaths()`：仅返回 `colorSource` 声明的角色（取色专用）
-- manifest 缺少非空 `colorSource` 数组时报错
+- `listThemes()`：扫描 `skin-assets/*.theme/` 目录（含 manifest.json），返回排序后的主题名
+- `selectTheme(themeArg?)`：**仅 build-tokens 调用**——`--theme` 参数 > `SKIN_THEME` 环境变量 > TTY 交互编号菜单 > 非 TTY 报错；0 个主题直接报错
+- `getActiveTheme()`：**其他模块跟随入口**——读 `dist/tokens.json` 顶层 `theme` 字段并校验主题存在；缺失时报错提示先跑 build-tokens
+- `getRoleImagePath(role, theme)` / `getAllRoleImagePaths(theme)`：4 个标准角色的物理路径
+- `getColorSourceImagePaths(theme)`：仅返回 `colorSource` 声明的图（取色专用）；条目支持角色 key 或文件名两种写法
+- **主题选择唯一入口是 build-tokens**，其他模块一律跟随活动主题
+- manifest 缺少非空 `colorSource` 数组或 4 个角色任一缺失时报错
 - 解耦主题文件名和标准角色名
 
 ### 4. skin-core/src/bootstrap-builder.ts
@@ -220,7 +232,8 @@ CSS 选择器 html[data-skin] 命中
 
 **关键设计**：
 - `buildBootstrap({ css, injectJs, marker })`：统一生成 `<style id="{marker}-style">` + `<script id="{marker}-script">` + marker 注释块
-- `buildImageInjectionScript()`：读取 manifest 4 个角色 → base64 data URI → 生成延迟注入脚本
+- `buildImageInjectionScript()`：经 `getActiveTheme()` 读取活动主题 manifest 的 4 个角色 → base64 data URI → 生成延迟注入脚本（主题不在此选择）
+- `imageFileToOptimizedDataUri()`：**大图压缩**——data URI > 1.5MB 的图用 sharp 缩放（上限 1920×1080）+ 转 webp（q82）；小图原样。原因：Chromium `kMaxURLChars` = 2MB，超长 URL 静默失效，背景图会直接消失（见 DECISIONS D-024）
 - `imageFileToDataUri()`：文件 → data URI（不含 url() 包装）
 - `injectBootstrapIntoHtml(html, bootstrap)`：在 `</head>` 前注入
 - **setTimeout(1ms) 延迟加载**：避免一次性注入大图触发 Electron OOM watchdog
@@ -296,7 +309,7 @@ CSS 选择器 html[data-skin] 命中
 **关键设计**：
 - 手写，不依赖自动生成的 tokens（颜色全部走 token-mapping.css 定义的 CSS 变量）
 - 所有选择器 scoped 在 `html[data-skin]` 下——删掉属性即完全还原
-- 主内容卡片装饰：`::before` 放宫殿背景（opacity 0.24，昼/夜分支），`::after` 放角色立绘（`background-image: var(--character-left), var(--character-right)`，左右贴底 10px，高度 86%/78%），子元素 `z-index: 2` 保证内容在装饰层之上
+- 主内容卡片装饰：`::before` 放宫殿背景（opacity 0.24，昼/夜分支），`::after` 放角色立绘（`background-image: var(--character-left), var(--character-right)`，位置与高度由 `--character-*-position` / `--character-*-height` 变量控制，默认贴边贴底、高 86%），子元素 `z-index: 2` 保证内容在装饰层之上
 - 装饰层排除弹窗（qwenwork 排除右侧辅助面板；opencode 排除 `[role="dialog"]` 内元素）
 - 历史教训：**背景必须不透明**——此前 `transparent` / `color-mix` 半透明让聊天文字直接叠在装饰层上，可读性灾难（详见 DECISIONS D-020）
 
@@ -347,7 +360,7 @@ CSS 选择器 html[data-skin] 命中
 ## 重要技术边界
 
 1. **skin-core 不碰具体 app**：只输出 tokens 和共享逻辑，不写 patch-asar、不写 CSS
-2. **skin-assets 不碰代码**：纯静态资源 + manifest.json（roles + colorSource）
+2. **skin-assets 不碰代码**：纯静态资源 + 每主题一份 manifest.json（roles + colorSource）；主题名 = `<name>.theme/` 目录名
 3. **skins/<target> 不改 core schema**：只写 token-mapping、skin.css、patch-asar
 4. **所有 CSS 选择器 scoped 在 `html[data-skin="active"]`**：删除属性 = 完全还原
 5. **图片走 data: URI**：不依赖网络、不依赖文件系统路径（CSP 拒绝 `file://`）
@@ -361,8 +374,9 @@ CSS 选择器 html[data-skin] 命中
 
 | 命令 | 作用 |
 |---|---|
-| `pnpm build-tokens` | 从 skin-assets 的 colorSource 图提取颜色，生成 light/dark 双套 46 tokens |
-| `pnpm build-mapping` | 各 skin 包读取 tokens，生成 token-mapping.css |
+| `pnpm build-tokens --theme <name>` | 从选中主题的 colorSource 图提取颜色，生成 light+dark 双套 46 tokens（未指定主题则交互选择；主题唯一选择点） |
+| `pnpm build-mapping:qwenwork` | qwenwork 读取 tokens，生成 token-mapping.css |
+| `pnpm build-mapping:opencode` | opencode 读取 tokens，生成 token-mapping.css |
 | `pnpm preview` | 生成 palette.html 可视化预览（簇 + light/dark 双套 token） |
 | `pnpm apply:qwenwork` | 给 QwenWorkCN Desktop 打补丁（二进制） |
 | `pnpm apply:opencode` | 给 OpenCode Desktop 打补丁（extract/repack） |
@@ -372,23 +386,26 @@ CSS 选择器 html[data-skin] 命中
 ## 典型工作流
 
 ```
-1. 更新 skin-assets 图片（改 manifest 文件名映射，若换角色则更新 colorSource）
+1. 新增主题：建 packages/skin-assets/<name>.theme/ 目录 → 放图片 → 写 manifest.json
+   （改主题图/取色来源也只改 manifest，不动代码）
    ↓
-2. pnpm build-tokens
-   → skin-core 提取 light/dark 双套 46 tokens
+2. pnpm build-tokens --theme <name>   ← 主题选择只在这里发生
+   → skin-core 提取 light/dark 双套 46 tokens，theme 字段写入 tokens.json
    ↓
-3. pnpm preview
+3. pnpm preview                        ← 跟随活动主题，不选主题
    → 浏览器检查取色结果（可选）
    ↓
-4. pnpm build-mapping
+4. pnpm build-mapping:<target>
    → 各 skin 包生成 token-mapping.css
    ↓
 5. 调整 skin.css（如果需要）
    → 手写组件样式
    ↓
-6. pnpm apply:<target>
+6. pnpm apply:<target>                 ← 跟随活动主题，不选主题
    → patch-asar 注入到 app.asar（自动备份 + 重启）
    ↓
 7. pnpm dev:<target>
    → 带 DevTools 重启，DevTools 里检查选择器 / 调样式
 ```
+
+切换主题 = 重跑 `pnpm build-tokens --theme <name>`（更新活动主题）→ build-mapping → apply。
