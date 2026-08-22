@@ -41,7 +41,7 @@ html[data-skin][data-theme="dark"] [class*="workbench-card"]:not([class*="right-
   border-radius: inherit;
 }
 
-/* Maid character art: left and right, bottom-aligned, 86%/78% height */
+/* Maid character art: left and right, bottom-aligned, position/height from manifest char-config */
 html[data-skin] [class*="agents-parchment-paper-surface"]:not([class*="right-dock-panel"])::after,
 html[data-skin] [class*="workbench-card"]:not([class*="right-dock-panel"]):not([class*="aux-panel"])::after {
   content: "";
@@ -50,8 +50,8 @@ html[data-skin] [class*="workbench-card"]:not([class*="right-dock-panel"]):not([
   z-index: 1;
   pointer-events: none;
   background-image: var(--character-left), var(--character-right);
-  background-position: 10px calc(100% - 10px), calc(100% - 10px) calc(100% - 10px);
-  background-size: auto 86%, auto 78%;
+  background-position: var(--character-left-position), var(--character-right-position);
+  background-size: auto var(--character-left-height), auto var(--character-right-height);
   background-repeat: no-repeat;
   border-radius: inherit;
 }

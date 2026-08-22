@@ -48,7 +48,7 @@ interface PatchOptions {
   allowRunning?: boolean
   force?: boolean
   noBackup?: boolean
-  backupPath?: boolean
+  backupPath?: string
   autoRestart?: boolean
 }
 
@@ -322,7 +322,7 @@ export async function patchAsar(options: PatchOptions = {}): Promise<void> {
   const injectJs = fs.readFileSync(injectJsPath, 'utf8')
 
   const combinedCss = tokenMappingCss + '\n' + css
-  const bootstrap = buildBootstrap({ css: combinedCss, injectJs, marker: MARKER })
+  const bootstrap = await buildBootstrap({ css: combinedCss, injectJs, marker: MARKER })
 
   // ─── Binary patch the asar ─────────────────────────────────────────────
   // Always read from the pristine backup when --force, to avoid compounding patches.
