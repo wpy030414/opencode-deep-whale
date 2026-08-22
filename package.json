@@ -1,12 +1,15 @@
 {
-  "name": "opencode-deep-whale",
-  "description": "深海女仆工坊 (Maid Atelier) skin for opencode desktop",
+  "name": "personalized-agent",
+  "private": true,
   "type": "module",
   "scripts": {
-    "apply": "tsx src/index.ts"
-  },
-  "dependencies": {
-    "@electron/asar": "^3.2.10"
+    "build-tokens": "pnpm --filter @skins/core build",
+    "build-mapping": "pnpm --filter @skins/opencode build-mapping && pnpm --filter @skins/qwenwork build-mapping",
+    "preview": "pnpm --filter @skins/core preview",
+    "dev:opencode": "node scripts/dev-opencode.mjs",
+    "apply:opencode": "pnpm --filter @skins/opencode apply",
+    "dev:qwenwork": "node scripts/dev-qwenwork.mjs",
+    "apply:qwenwork": "pnpm --filter @skins/qwenwork apply"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

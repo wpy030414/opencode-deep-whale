@@ -1,0 +1,22 @@
+{
+  "name": "@skins/core",
+  "description": "Universal skin pipeline: extract colors from images and generate design tokens",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./assets-loader": "./src/assets-loader.ts",
+    "./bootstrap-builder": "./src/bootstrap-builder.ts"
+  },
+  "scripts": {
+    "build": "tsx src/index.ts",
+    "preview": "tsx src/palette-preview.ts"
+  },
+  "dependencies": {
+    "sharp": "^0.33.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}
