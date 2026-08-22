@@ -1,14 +1,18 @@
 {
   "schema": "standard-roles-v1",
-  "description": "Mapping from standard roles to physical image files. The 4 roles below are fixed by the pipeline; only the file names may change per theme.",
   "roles": {
     "background-day": "maid-atelier-palace-day-v4.webp",
     "background-night": "maid-atelier-palace-night-v4.webp",
     "character-left": "maid-atelier-maid-left-v5.webp",
     "character-right": "maid-atelier-maid-right-v6.webp"
   },
+  "char-config": {
+    "character-right": {
+      "height": "78%"
+    }
+  },
   "colorSource": [
-    "character-left",
-    "character-right"
+    "maid-atelier-maid-left-v5.webp",
+    "maid-atelier-maid-right-v6.webp"
   ]
 }
