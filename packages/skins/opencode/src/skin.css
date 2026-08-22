@@ -46,8 +46,8 @@ html[data-skin] [data-component="session-new-design"]::after {
   z-index: 1;
   pointer-events: none;
   background-image: var(--character-left), var(--character-right);
-  background-position: 10px calc(100% - 10px), calc(100% - 10px) calc(100% - 10px);
-  background-size: auto 86%, auto 78%;
+  background-position: var(--character-left-position), var(--character-right-position);
+  background-size: auto var(--character-left-height), auto var(--character-right-height);
   background-repeat: no-repeat;
   border-radius: inherit;
 }

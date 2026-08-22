@@ -37,7 +37,7 @@ interface PatchOptions {
   allowRunning?: boolean
   force?: boolean
   noBackup?: boolean
-  backupPath?: boolean
+  backupPath?: string
   autoRestart?: boolean
 }
 
@@ -223,7 +223,7 @@ export async function patchAsar(options: PatchOptions = {}): Promise<void> {
 
   // Build bootstrap HTML fragment (inline CSS + data URI images + inject.js)
   const combinedCss = tokenMappingCss + '\n' + css
-  const bootstrap = buildBootstrap({ css: combinedCss, injectJs, marker: MARKER })
+  const bootstrap = await buildBootstrap({ css: combinedCss, injectJs, marker: MARKER })
 
   // Create temp work dir
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-skin-patch-'))

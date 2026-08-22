@@ -1,11 +1,15 @@
 // src/index.ts
-// Entry point for the opencode-deep-whale asar patcher.
+// Entry point for the opencode asar patcher.
 // Run with: pnpm apply (or pnpm apply -- --no-force / --no-backup / --allow-running)
+// 主题不在此选择——apply 跟随 build-tokens 选定的活动主题
 import { patchAsar } from './patch-asar.js'
+import { getActiveTheme } from '@skins/core/assets-loader'
 
 async function main(): Promise<void> {
-  console.log('🐋 Deep-sea Maid Atelier Patcher')
-  console.log('================================\n')
+  const theme = getActiveTheme()
+  console.log(`🐾 Universal Skin Patcher (OpenCode Edition)`)
+  console.log('=============================================\n')
+  console.log(`   Active theme: ${theme}\n`)
 
   // Parse CLI args if needed, otherwise use defaults
   const args = process.argv.slice(2)
